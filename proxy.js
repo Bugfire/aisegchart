@@ -1,3 +1,6 @@
+// ref. http://qiita.com/LightSpeedC/items/3cae342fd7e79a21869f
+//      http-proxy-server-in-10-lines.js
+//
 var http = require('http'), url = require('url');
 http.createServer(function onCliReq(cliReq, cliRes) {
   var x = url.parse(cliReq.url);
