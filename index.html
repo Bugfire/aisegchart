@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<head>
+<meta charset="utf-8">
+<title>AiSEG</title>
+<body>
+<script src="ccchart.js" charset="utf-8"></script>
+<canvas id="aiseg"></canvas>
+<script>
+var chart_aiseg = {
+  "config": {
+    "title": "AiSEG",
+    "subTitle": "Statistics",
+    "type": "bar",
+    //"useMarker": "arc",
+    "minY": 0,
+    //"xScaleSkip": 3,
+    "roundedUpMaxY": 1000,
+    "unit": "W",
+    "yScaleFont": "8px Arial",
+    "yScaleRotate": -45,
+    //"useVal": "yes",
+    //"valFont": "4px",
+    "colorSet": 
+          ["#3CB000","#DDDD80","#DDA0DD","#DD8080"]
+  },
+
+  "data": [
+    ["Time"],
+    ["売電"],
+    ["発電"],
+    ["買電"],
+    ["消費"]
+  ]
+};
+
+var plot = function(time, sel, sol, buy, use) {
+  var that = ccchart.ops['aiseg'];
+  if (that.drawing) {
+      console.log('drop data on drawing');
+      return; // discard receive data on drawing
+  }
+  var push_data = function(index, value) {
+    var rowTitle = that.op.data[index].shift();
+    that.op.data[index].push(value * 1000);
+    if (that.op.data[index].length > 10) {
+      that.op.data[index].shift();
+    }
+    that.op.data[index].unshift(rowTitle);
+  };
+  push_data(0, time);
+  push_data(1, sel);
+  push_data(2, sol);
+  push_data(3, buy);
+  push_data(4, use);
+
+  ccchart.init(that.id, that.op);
+};
+
+var fetch = function () {
+  var get_key = function (text, keyname) {
+    var v = (text.match(new RegExp('var ' + keyname + ' = "([0-9-.]+)";')))[1];
+    if (v == '-')
+      v = 0;
+    else
+      v = parseFloat(v);
+    return v;
+  };
+  var req = new XMLHttpRequest();
+  req.onreadystatechange = function() {
+    if (req.readyState == 4 && req.status == 200) {
+      var text = req.responseText;
+      var sel = 0;
+      var buy = 0;
+      var sol = 0;
+      var use = 0;
+      var time = "";
+      try {
+        sel = get_key(text, "selElecT");
+        buy = get_key(text, "buyElecT");
+        sol = get_key(text, "solerT");
+        use = get_key(text, "useT");
+        var date = new Date();
+        //time = ("0" + date.getHours()).substr(-2) + ":" + ("0" + date.getMinutes()).substr(-2) + ":" + ("0" + date.getSeconds()).substr(-2);
+      } catch (e) {
+      }
+      plot(time, sel, sol, buy, use);
+    }
+  }
+  req.open("GET", "PROXY_HEAD/get/top_val.cgi", true);
+  req.send();
+};
+
+ccchart.init('aiseg', chart_aiseg);
+
+// initialize
+var i;
+for (i = 0; i < 10; i++) {
+  plot("", 0, 0, 0, 0);
+}
+
+fetch();
+
+var intervalID = setInterval(fetch, 5000);
+
+</script>
+</body>
