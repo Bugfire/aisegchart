@@ -4,9 +4,10 @@
 <title>AiSEG</title>
 <body>
 <script src="ccchart.js" charset="utf-8"></script>
-<canvas id="aiseg"></canvas>
+<canvas id="main"></canvas>
+<canvas id="sub"></canvas>
 <script>
-var chart_aiseg = {
+var chart_main = {
   "config": {
     "title": "AiSEG",
     "subTitle": "Statistics",
@@ -17,9 +18,9 @@ var chart_aiseg = {
     "yScaleFont": "8px Arial",
     "yScaleRotate": -45,
     "roundDigit": 1,
-    "colorSet": 
-          ["#3CB000","#DDDD80","#DDA0DD","#DD8080"],
-    "useShadow": "no"
+    "useShadow": "no",
+    "colorSet":
+          ["#3CB000","#DDDD80","#DDA0DD","#DD8080"]
   },
 
   "data": [
@@ -30,9 +31,38 @@ var chart_aiseg = {
     ["消費"]
   ]
 };
+var chart_sub = {
+  "config": {
+    "title": "詳細",
+    "type": "line",
+    "lineWidth": 2,
+    "minY": 0,
+    "roundedUpMaxY": 100,
+    "unit": "W",
+    "yScaleFont": "8px Arial",
+    "yScaleRotate": -45,
+    "useShadow": "no",
+    "colorSet":
+          ["#DD0000","#00DD00","#DDDD00","#0000DD","#DD00DD","#00DDDD",
+           "#DD8080","#80DD80","#DDDD80","#8080DD","#DD80DD","#80DDDD",
+           "#808080","#DD4080","#DD8040","#40DD80","#80DD40","#DDDD40",
+           "#80DD00","#DD8000","#8000DD","#DD0080","#0080DD","#00DD80"],
+  },
 
-var plot = function(time, sel, sol, buy, use) {
-  var that = ccchart.ops['aiseg'];
+  "data": [
+     ["Time"],
+     ["Dummy"]
+  ]
+};
+
+var draw = function(data) {
+  drawMain(data.time, data.sel, data.sol, data.buy, data.use);
+  drawSub(data);
+console.log("names=" + data.names + " values=" + data.values);
+};
+
+var drawMain = function(time, sel, sol, buy, use) {
+  var that = ccchart.ops['main'];
   if (that.drawing) {
       console.log('drop data on drawing');
       return; // discard receive data on drawing
@@ -71,7 +101,72 @@ var plot = function(time, sel, sol, buy, use) {
   ccchart.init(that.id, that.op);
 };
 
-var fetch = function () {
+var subNumHistory = 30;
+var subValueHistory = [];
+
+var drawSub = function(data) {
+  var that = ccchart.ops['sub'];
+  if (that.drawing) {
+      console.log('drop data on drawing');
+      return; // discard receive data on drawing
+  }
+  var maxY = 0;
+  var push_data = function(index, value) {
+    var rowTitle = that.op.data[index].shift();
+    that.op.data[index].push(value * 1.0);
+    if (that.op.data[index].length > subNumHistory) {
+      that.op.data[index].shift();
+    }
+    var yy = Math.max.apply(null, that.op.data[index]);
+    if (yy > maxY)
+      maxY = yy;
+    that.op.data[index].unshift(rowTitle);
+  };
+
+  if (data.names != null) {
+    subValueHistory.push(data.values);
+    if (subValueHistory.length > subNumHistory) {
+      subValueHistory.shift();
+    }
+    var c = 1;
+    for (var i = 0; i < data.names.length; i++) {
+      var exist = 0;
+      for (var j = 0; j < subValueHistory.length; j++) {
+        var v = subValueHistory[j][i];
+        if (v != "-W" && v != "0W" && v != "") {
+          exist = 1;
+          break;
+        }
+      }
+      if (exist) {
+        that.op.data[c] = [];
+        that.op.data[c][0] = data.names[i];
+        var offset = 0;
+        if (subValueHistory.length < subNumHistory) {
+          offset = subNumHistory - subValueHistory.length;
+        }
+        for (var j = 0; j < subValueHistory.length; j++) {
+          var v = subValueHistory[j][i];
+          var vv;
+          if (v == "-W" || v == "0W" || v == "") {
+            vv = 0;
+          } else {
+            vv = parseInt(v.slice(0, -1));
+          }
+          that.op.data[c][j + 1 + offset] = vv;
+        }
+        for (var j = 0; j < offset; j++) {
+          that.op.data[c][j + 1] = that.op.data[c][subNumHistory];
+        }
+        c++;
+      }
+    }
+  }
+
+  ccchart.init(that.id, that.op);
+}
+
+var fetchMain = function () {
   var get_key = function (text, keyname) {
     var v = (text.match(new RegExp('var ' + keyname + ' = "([0-9-.]+)";')))[1];
     if (v == '-')
@@ -82,40 +177,72 @@ var fetch = function () {
   };
   var req = new XMLHttpRequest();
   req.onreadystatechange = function() {
+    var data = {};
     if (req.readyState == 4 && req.status == 200) {
       var text = req.responseText;
-      var sel = 0;
-      var buy = 0;
-      var sol = 0;
-      var use = 0;
-      var time = "";
+      data.sel = 0;
+      data.buy = 0;
+      data.sol = 0;
+      data.use = 0;
+      data.time = "";
+      data.names = [];
+      data.values = [];
       try {
-        sel = get_key(text, "selElecT");
-        buy = get_key(text, "buyElecT");
-        sol = get_key(text, "solerT");
-        use = get_key(text, "useT");
+        data.sel = get_key(text, "selElecT");
+        data.buy = get_key(text, "buyElecT");
+        data.sol = get_key(text, "solerT");
+        data.use = get_key(text, "useT");
         var date = new Date();
         //time = ("0" + date.getHours()).substr(-2) + ":" + ("0" + date.getMinutes()).substr(-2) + ":" + ("0" + date.getSeconds()).substr(-2);
       } catch (e) {
       }
-      plot(time, sel, sol, buy, use);
+      fetchSub(data, 0);
     }
   }
-  req.open("GET", "PROXY_HEAD/get/top_val.cgi", true);
+  req.open("GET", "PROXY_HEAD/t", true);
   req.send();
 };
 
-ccchart.init('aiseg', chart_aiseg);
+var fetchSub = function (data, i) {
+  var get_key = function (text, keyname) {
+    return (text.match(new RegExp('javascript:parent.' + keyname + ' = "(.*)";')))[1];
+  };
+
+  var req = new XMLHttpRequest();
+  req.onreadystatechange = function() {
+    if (req.readyState == 4 && req.status == 200) {
+      var text = req.responseText;
+      try {
+        var pageno = (text.match(/javascript:parent.pageno = ([0-9]+)/))[1];
+        pageno = parseInt(pageno);
+        for (var n = 0; n < 10; n++) {
+          data.names[n + pageno * 10] = get_key(text, "name" + n);
+          data.values[n + pageno * 10] = get_key(text, "value" + n);
+        }
+      } catch (e) {
+      }
+      if (i < 3)
+        fetchSub(data, i + 1);
+      else
+        draw(data);
+    }
+  }
+  req.open("GET", "PROXY_HEAD/p" + i, true);
+  req.send();
+};
+
+ccchart.init('main', chart_main);
+ccchart.init('sub', chart_sub);
 
 // initialize
 var i;
 for (i = 0; i < 10; i++) {
-  plot("", 0, 0, 0, 0);
+  draw({});
 }
 
-fetch();
+fetchMain();
 
-var intervalID = setInterval(fetch, 5000);
+var intervalID = setInterval(fetchMain, 10000);
 
 </script>
 </body>
