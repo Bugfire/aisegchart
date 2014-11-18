@@ -14,8 +14,8 @@ var chart_aiseg = {
     //"useMarker": "arc",
     "minY": 0,
     //"xScaleSkip": 3,
-    "roundedUpMaxY": 1000,
-    "unit": "W",
+    "roundedUpMaxY": 1,
+    "unit": "kW",
     "yScaleFont": "8px Arial",
     "yScaleRotate": -45,
     //"useVal": "yes",
@@ -41,7 +41,7 @@ var plot = function(time, sel, sol, buy, use) {
   }
   var push_data = function(index, value) {
     var rowTitle = that.op.data[index].shift();
-    that.op.data[index].push(value * 1000);
+    that.op.data[index].push(value * 1);
     if (that.op.data[index].length > 10) {
       that.op.data[index].shift();
     }
