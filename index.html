@@ -13,7 +13,6 @@ var chart_main = {
     "subTitle": "Statistics",
     "type": "bar",
     "minY": 0,
-    "roundedUpMaxY": 1,
     "unit": "kW",
     "yScaleFont": "8px Arial",
     "yScaleRotate": -45,
@@ -34,10 +33,9 @@ var chart_main = {
 var chart_sub = {
   "config": {
     "title": "詳細",
-    "type": "line",
+    "type": "bezi2",
     "lineWidth": 2,
     "minY": 0,
-    "roundedUpMaxY": 100,
     "unit": "W",
     "yScaleFont": "8px Arial",
     "yScaleRotate": -45,
@@ -51,14 +49,13 @@ var chart_sub = {
 
   "data": [
      ["Time"],
-     ["Dummy"]
+     [" "]
   ]
 };
 
 var draw = function(data) {
   drawMain(data.time, data.sel, data.sol, data.buy, data.use);
   drawSub(data);
-console.log("names=" + data.names + " values=" + data.values);
 };
 
 var drawMain = function(time, sel, sol, buy, use) {
@@ -85,18 +82,19 @@ var drawMain = function(time, sel, sol, buy, use) {
   push_data(3, buy);
   push_data(4, use);
 
-  maxY = Math.ceil(maxY);
-  if (maxY == 0)
+  if (maxY <= 1)
     maxY = 1;
 
   var axisXLen;
-  if (maxY < 6){
-    axisXLen = maxY * 2;
+  if (maxY <= 6){
+    axisXLen = Math.ceil(maxY / 0.5);
+    maxY = axisXLen * 0.5;
   } else {
-    axisXLen = maxY;
+    axisXLen = Math.ceil(maxY);
+    maxY = axisXLen;
   }
   that.op.config.axisXLen = axisXLen;
-  that.op.config.maxY = Math.ceil(maxY);
+  that.op.config.maxY = maxY;
 
   ccchart.init(that.id, that.op);
 };
@@ -110,30 +108,23 @@ var drawSub = function(data) {
       console.log('drop data on drawing');
       return; // discard receive data on drawing
   }
-  var maxY = 0;
-  var push_data = function(index, value) {
-    var rowTitle = that.op.data[index].shift();
-    that.op.data[index].push(value * 1.0);
-    if (that.op.data[index].length > subNumHistory) {
-      that.op.data[index].shift();
-    }
-    var yy = Math.max.apply(null, that.op.data[index]);
-    if (yy > maxY)
-      maxY = yy;
-    that.op.data[index].unshift(rowTitle);
-  };
+  var isEmpty = function(v) {
+    return v == "-W" || v == "0W" || v == "";
+  }
 
   if (data.names != null) {
     subValueHistory.push(data.values);
     if (subValueHistory.length > subNumHistory) {
       subValueHistory.shift();
     }
+    that.op.data = [ ["Time"] ];
     var c = 1;
+    var maxY = 0;
     for (var i = 0; i < data.names.length; i++) {
       var exist = 0;
       for (var j = 0; j < subValueHistory.length; j++) {
         var v = subValueHistory[j][i];
-        if (v != "-W" && v != "0W" && v != "") {
+        if (!isEmpty(v)) {
           exist = 1;
           break;
         }
@@ -148,12 +139,14 @@ var drawSub = function(data) {
         for (var j = 0; j < subValueHistory.length; j++) {
           var v = subValueHistory[j][i];
           var vv;
-          if (v == "-W" || v == "0W" || v == "") {
+          if (isEmpty(v)) {
             vv = 0;
           } else {
             vv = parseInt(v.slice(0, -1));
           }
           that.op.data[c][j + 1 + offset] = vv;
+          if (vv > maxY)
+            maxY = vv;
         }
         for (var j = 0; j < offset; j++) {
           that.op.data[c][j + 1] = that.op.data[c][subNumHistory];
@@ -161,6 +154,19 @@ var drawSub = function(data) {
         c++;
       }
     }
+    var axisXLen;
+    if (maxY <= 100) {
+      axisXLen = 10;
+      maxY = 100;
+    } else if (maxY <= 300) {
+      axisXLen = Math.ceil(maxY / 50);
+      maxY = axisXLen * 50;
+    } else {
+      axisXLen = Math.ceil(maxY / 100);
+      maxY = axisXLen * 100;
+    }
+    that.op.config.axisXLen = axisXLen;
+    that.op.config.maxY = maxY;
   }
 
   ccchart.init(that.id, that.op);
@@ -199,7 +205,7 @@ var fetchMain = function () {
       fetchSub(data, 0);
     }
   }
-  req.open("GET", "PROXY_HEAD/t", true);
+  req.open("GET", "PROXY_HEAD/t?v=" + parseInt((new Date).getTime()/1000), true);
   req.send();
 };
 
@@ -227,7 +233,7 @@ var fetchSub = function (data, i) {
         draw(data);
     }
   }
-  req.open("GET", "PROXY_HEAD/p" + i, true);
+  req.open("GET", "PROXY_HEAD/p" + i + "?v=" + parseInt((new Date).getTime()/1000), true);
   req.send();
 };
 
@@ -237,7 +243,7 @@ ccchart.init('sub', chart_sub);
 // initialize
 var i;
 for (i = 0; i < 10; i++) {
-  draw({});
+  draw({sel:0, sol:0, buy:0, use:0});
 }
 
 fetchMain();
