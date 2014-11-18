@@ -11,17 +11,15 @@ var chart_aiseg = {
     "title": "AiSEG",
     "subTitle": "Statistics",
     "type": "bar",
-    //"useMarker": "arc",
     "minY": 0,
-    //"xScaleSkip": 3,
     "roundedUpMaxY": 1,
     "unit": "kW",
     "yScaleFont": "8px Arial",
     "yScaleRotate": -45,
-    //"useVal": "yes",
-    //"valFont": "4px",
+    "roundDigit": 1,
     "colorSet": 
-          ["#3CB000","#DDDD80","#DDA0DD","#DD8080"]
+          ["#3CB000","#DDDD80","#DDA0DD","#DD8080"],
+    "useShadow": "no"
   },
 
   "data": [
@@ -39,12 +37,16 @@ var plot = function(time, sel, sol, buy, use) {
       console.log('drop data on drawing');
       return; // discard receive data on drawing
   }
+  var maxY = 0;
   var push_data = function(index, value) {
     var rowTitle = that.op.data[index].shift();
-    that.op.data[index].push(value * 1);
+    that.op.data[index].push(value * 1.0);
     if (that.op.data[index].length > 10) {
       that.op.data[index].shift();
     }
+    var yy = Math.max.apply(null, that.op.data[index]);
+    if (yy > maxY)
+      maxY = yy;
     that.op.data[index].unshift(rowTitle);
   };
   push_data(0, time);
@@ -52,6 +54,19 @@ var plot = function(time, sel, sol, buy, use) {
   push_data(2, sol);
   push_data(3, buy);
   push_data(4, use);
+
+  maxY = Math.ceil(maxY);
+  if (maxY == 0)
+    maxY = 1;
+
+  var axisXLen;
+  if (maxY < 6){
+    axisXLen = maxY * 2;
+  } else {
+    axisXLen = maxY;
+  }
+  that.op.config.axisXLen = axisXLen;
+  that.op.config.maxY = Math.ceil(maxY);
 
   ccchart.init(that.id, that.op);
 };
