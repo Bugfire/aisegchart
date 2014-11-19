@@ -23,15 +23,20 @@ var chart_main = {
     "colorSet":
           ["#3CB000","#DDA0DD","#DDDD80","#DD8080"]
   },
-
   "data": [
-    ["Time"],
-    ["売電"],
-    ["消費"],
-    ["発電"],
-    ["買電"]
+     ["Time"], [" "], [" "], [" "], [" "]
   ]
 };
+
+var main_names =
+[
+  "Time",
+  "売電",
+  "消費",
+  "発電",
+  "買電"
+];
+
 var chart_sub = {
   "config": {
     "title": "詳細",
@@ -39,6 +44,7 @@ var chart_sub = {
     "lineWidth": 2,
     "minY": 0,
     "unit": "W",
+    "bgGradient": { direction: "vertical", from: "#222222", to: "#687478" },
     "hanreiFont": "100 8px 'Courier New'",
     "yScaleFont": "100 8px Arial",
     "yScaleRotate": -45,
@@ -47,8 +53,7 @@ var chart_sub = {
   },
 
   "data": [
-     ["Time"],
-     [" "]
+     ["Time"], [" "]
   ]
 };
 
@@ -97,6 +102,8 @@ var drawMain = function(time, sell, solar, buy, use) {
     var yy = Math.max.apply(null, that.op.data[index]);
     if (yy > maxY)
       maxY = yy;
+    if (index > 0)
+      rowTitle = main_names[index] + "(" + value + "kW)";
     that.op.data[index].unshift(rowTitle);
   };
   push_data(0, time);
