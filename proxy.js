@@ -5,6 +5,9 @@ http.createServer(function onCliReq(cliReq, cliRes) {
   var ts = parseInt((new Date).getTime()/1000);
   var path;
   switch (x.path.substring(0, 2)) {
+    case '/r':
+      path = "/get/top.cgi";
+      break;
     case '/t':
       path = "/get/top_val.cgi?poll=" + ts;
       break;

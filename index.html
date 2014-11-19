@@ -14,7 +14,7 @@ var chart_main = {
     "type": "bar",
     "minY": 0,
     "unit": "kW",
-    "yScaleFont": "8px Arial",
+    "yScaleFont": "100 8px Arial",
     "yScaleRotate": -45,
     "roundDigit": 1,
     "useShadow": "no",
@@ -37,14 +37,11 @@ var chart_sub = {
     "lineWidth": 2,
     "minY": 0,
     "unit": "W",
-    "yScaleFont": "8px Arial",
+    "hanreiFont": "100 8px 'Courier New'",
+    "yScaleFont": "100 8px Arial",
     "yScaleRotate": -45,
     "useShadow": "no",
-    "colorSet":
-          ["#DD0000","#00DD00","#DDDD00","#0000DD","#DD00DD","#00DDDD",
-           "#DD8080","#80DD80","#DDDD80","#8080DD","#DD80DD","#80DDDD",
-           "#808080","#DD4080","#DD8040","#40DD80","#80DD40","#DDDD40",
-           "#80DD00","#DD8000","#8000DD","#DD0080","#0080DD","#00DD80"],
+    "colorSet": [],
   },
 
   "data": [
@@ -52,6 +49,29 @@ var chart_sub = {
      [" "]
   ]
 };
+
+var sub_color_set = [
+  "#800000","#c00000","#ff0000",
+  "#008000","#00c000","#00ff00",
+  "#808000","#c0c000","#ffff00",
+  "#000080","#0000c0","#0000ff",
+  "#800080","#c000c0","#ff00ff",
+  "#008080","#00c0c0","#00ffff",
+
+  "#408000","#40c000","#40ff00",
+  "#400080","#4000c0","#4000ff",
+  "#804000","#c04000","#ff4000",
+  "#004080","#0040c0","#0040ff",
+  "#800040","#c00040","#ff0040",
+  "#008040","#00c040","#00ff40",
+
+  "#80c000","#80ff00","#c0ff00",
+  "#8000c0","#8000ff","#c000ff",
+  "#c08000","#ff8000","#ffc000",
+  "#0080c0","#0080ff","#00c0ff",
+  "#c00080","#ff0080","#ff00c0",
+  "#00c080","#00ff80","#00ffc0",
+];
 
 var draw = function(data) {
   drawMain(data.time, data.sel, data.sol, data.buy, data.use);
@@ -108,62 +128,80 @@ var drawSub = function(data) {
       console.log('drop data on drawing');
       return; // discard receive data on drawing
   }
-  var isEmpty = function(v) {
+  var isZero = function(v) {
     return v == "-W" || v == "0W" || v == "";
   }
 
   if (data.names != null) {
-    subValueHistory.push(data.values);
+    var myValues = [];
+    for (var i = 0; i < data.names.length; i++) {
+      var v = data.values[i];
+      if (isZero(v))
+        myValues[i] = 0;
+      else
+        myValues[i] = parseInt(v.slice(0, -1));
+    }
+
+    subValueHistory.push(myValues);
+
+    var emptyLength = 0;
     if (subValueHistory.length > subNumHistory) {
       subValueHistory.shift();
+    } else {
+      emptyLength = subNumHistory - subValueHistory.length;
     }
+
     that.op.data = [ ["Time"] ];
-    var c = 1;
+
+    var values = [];
+    var c = 0;
     var maxY = 0;
     for (var i = 0; i < data.names.length; i++) {
       var exist = 0;
       for (var j = 0; j < subValueHistory.length; j++) {
         var v = subValueHistory[j][i];
-        if (!isEmpty(v)) {
+        if (v != 0) {
           exist = 1;
           break;
         }
       }
       if (exist) {
-        that.op.data[c] = [];
-        that.op.data[c][0] = data.names[i];
-        var offset = 0;
-        if (subValueHistory.length < subNumHistory) {
-          offset = subNumHistory - subValueHistory.length;
-        }
+        values[c] = {};
+        values[c].data = [];
+        values[c].data[0] = data.names[i];
         for (var j = 0; j < subValueHistory.length; j++) {
-          var v = subValueHistory[j][i];
-          var vv;
-          if (isEmpty(v)) {
-            vv = 0;
-          } else {
-            vv = parseInt(v.slice(0, -1));
-          }
-          that.op.data[c][j + 1 + offset] = vv;
+          var vv = subValueHistory[j][i];
+          values[c].data[emptyLength + 1 + j] = vv;
           if (vv > maxY)
             maxY = vv;
         }
-        for (var j = 0; j < offset; j++) {
-          that.op.data[c][j + 1] = that.op.data[c][subNumHistory];
+        if (emptyLength != 0) {
+          values[c].data[emptyLength] = values[c].data[emptyLength + 1];
         }
+        values[c].color = sub_color_set[i];
+        that.op.config.colorSet[c] = sub_color_set[i];
         c++;
       }
     }
+    if (values.length > 0) {
+      values.sort(function(a, b) { return a.data[subNumHistory] > b.data[subNumHistory] ? 1 : -1; });
+    }
+    for (var i = 0; i < values.length; i++) {
+      values[i].data[0] = ("    " + values[i].data[subNumHistory]).slice(-4) + "W " + values[i].data[0];
+      that.op.data[i + 1] = values[i].data;
+      that.op.config.colorSet[i] = values[i].color;
+    }
+
     var axisXLen;
     if (maxY <= 100) {
       axisXLen = 10;
       maxY = 100;
     } else if (maxY <= 300) {
       axisXLen = Math.ceil(maxY / 50);
-      maxY = axisXLen * 50;
+      maxY = Math.ceil(axisXLen * 50);
     } else {
       axisXLen = Math.ceil(maxY / 100);
-      maxY = axisXLen * 100;
+      maxY = Math.ceil(axisXLen * 100);
     }
     that.op.config.axisXLen = axisXLen;
     that.op.config.maxY = maxY;
@@ -171,6 +209,26 @@ var drawSub = function(data) {
 
   ccchart.init(that.id, that.op);
 }
+
+var lastFetchTop = 0;
+
+// enable watt-checker on get every 120sec (maybe stop at 180sec)
+var fetchTop = function() {
+  var req = new XMLHttpRequest();
+  var fetchTop = parseInt((new Date).getTime() / 1000);
+  if (fetchTop - lastFetchTop < 120) {
+    fetchMain();
+    return;
+  }
+  req.onreadystatechange = function() {
+    if (req.readyState == 4 && req.status == 200) {
+      lastFetchTop = fetchTop;
+      fetchMain();
+    }
+  };
+  req.open("GET", "PROXY_HEAD/r?v=" + fetchTop, true);
+  req.send();
+};
 
 var fetchMain = function () {
   var get_key = function (text, keyname) {
@@ -246,9 +304,9 @@ for (i = 0; i < 10; i++) {
   draw({sel:0, sol:0, buy:0, use:0});
 }
 
-fetchMain();
+fetchTop();
 
-var intervalID = setInterval(fetchMain, 10000);
+var intervalID = setInterval(fetchTop, 10000);
 
 </script>
 </body>
