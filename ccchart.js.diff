@@ -1,0 +1,48 @@
+--- ccchart.js.orig	2014-11-20 01:20:04.999404586 +0900
++++ ccchart.js	2014-11-20 02:09:13.560318801 +0900
+@@ -1843,6 +1843,19 @@
+       }
+     },
+     drawStackedBar: function () {
++      var getStackedBarIndexY = function (i) {
++        if (that.op.config.stackedBar === null)
++          return 0;
++        var total = 0;
++        for (var j = 0; j < that.op.config.stackedBar.length; j++) {
++          var prev_total = total;
++          total += that.op.config.stackedBar[j];
++          if (i < total)
++            return i - prev_total;
++        }
++        return 0;
++      };
++
+       //積重ねグラフを描く
+       this.ctx.save();
+       var that = this;
+@@ -1853,17 +1866,24 @@
+        // if(this.type==='stacked')--that.dataColLen;//暫定：あとでチェック
+       for (var k = 0; k < that.dataColLen; k++) {
+         var sumHeight = 0; //積重ねた高さ
++        var xoffset = 0;
+         for (var l = 0; l < that.dataRowLen; l++) {
+           var y = (
+             that.chartBottom
+                - (that.data[l][k]||0)
+                * that.unitH
+           );
++          if (getStackedBarIndexY(l) == 0 && l != 0) {
++            that.ctx.translate(0, sumHeight);
++            sumHeight = 0;
++            xoffset += that.barWidth;
++          }
++
+           that.ctx.beginPath();
+           that.ctx.fillStyle = that.colorSet[l];
+           if(that.useShadow === 'yes')that.drawShadow(shdw[0],shdw[1],shdw[2],shdw[3]);
+           that.ctx.fillRect(
+-            x, y,
++            x + xoffset, y,
+             that.barWidth,
+             that.chartBottom - y
+           );

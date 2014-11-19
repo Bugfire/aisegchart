@@ -11,7 +11,9 @@ var chart_main = {
   "config": {
     "title": "AiSEG",
     "subTitle": "Statistics",
-    "type": "bar",
+    "type": "stacked",
+    "barWidth": 12,
+    "stackedBar": [ 2, 2 ],
     "minY": 0,
     "unit": "kW",
     "yScaleFont": "100 8px Arial",
@@ -19,15 +21,15 @@ var chart_main = {
     "roundDigit": 1,
     "useShadow": "no",
     "colorSet":
-          ["#3CB000","#DDDD80","#DDA0DD","#DD8080"]
+          ["#3CB000","#DDA0DD","#DDDD80","#DD8080"]
   },
 
   "data": [
     ["Time"],
     ["売電"],
+    ["消費"],
     ["発電"],
-    ["買電"],
-    ["消費"]
+    ["買電"]
   ]
 };
 var chart_sub = {
@@ -78,8 +80,9 @@ var draw = function(data) {
   drawSub(data);
 };
 
-var drawMain = function(time, sel, sol, buy, use) {
+var drawMain = function(time, sell, solar, buy, use) {
   var that = ccchart.ops['main'];
+
   if (that.drawing) {
       console.log('drop data on drawing');
       return; // discard receive data on drawing
@@ -97,10 +100,19 @@ var drawMain = function(time, sel, sol, buy, use) {
     that.op.data[index].unshift(rowTitle);
   };
   push_data(0, time);
-  push_data(1, sel);
-  push_data(2, sol);
-  push_data(3, buy);
-  push_data(4, use);
+  push_data(1, sell);
+  push_data(2, use);
+  push_data(3, solar);
+  push_data(4, buy);
+
+  for (var i = 1; i < that.op.data[1].length; i++) {
+    var y0 = that.op.data[1][i] + that.op.data[2][i];
+    var y1 = that.op.data[3][i] + that.op.data[4][i];
+    if (y0 < y1)
+      y0 = y1;
+    if (y0 > maxY)
+      maxY = y0;
+  }
 
   if (maxY <= 1)
     maxY = 1;

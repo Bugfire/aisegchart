@@ -15,7 +15,9 @@ clean:
 	rm -f $(TARGET)/ccchart.js $(TARGET)/proxy.js $(TARGET)/index.html
 
 $(TARGET)/ccchart.js:
-	curl http://ccchart.com/js/ccchart.js > $@
+	curl http://ccchart.com/js/ccchart.js > ccchart.js
+	patch -p0 < ccchart.js.diff
+	cp ccchart.js $@
 
 $(TARGET)/proxy.js:
 	sed -e 's&AISEG_HOST&$(AISEG_HOST)&g' -e 's&AISEG_PASS&$(AISEG_PASS)&g' -e 's&PROXY_PORT&$(PROXY_PORT)&' < proxy.js > $@
