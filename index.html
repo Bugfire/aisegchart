@@ -5,7 +5,7 @@
 <body>
 <script src="ccchart.js" charset="utf-8"></script>
 <canvas id="main"></canvas>
-<canvas id="sub"></canvas>
+<canvas id="detail"></canvas>
 <script>
 var chart_main = {
   "config": {
@@ -16,12 +16,13 @@ var chart_main = {
     "stackedBar": [ 2, 2 ],
     "minY": 0,
     "unit": "kW",
+    "xScaleFont": "100 8px Arial",
     "yScaleFont": "100 8px Arial",
     "yScaleRotate": -45,
     "roundDigit": 1,
     "useShadow": "no",
     "colorSet":
-          ["#3CB000","#DDA0DD","#DDDD80","#DD8080"]
+          ["#DDA0DD","#3CB000","#DDDD80","#DD8080"]
   },
   "data": [
      ["Time"], [" "], [" "], [" "], [" "]
@@ -31,13 +32,13 @@ var chart_main = {
 var main_names =
 [
   "Time",
-  "売電",
   "消費",
+  "売電",
   "発電",
   "買電"
 ];
 
-var chart_sub = {
+var chart_detail = {
   "config": {
     "title": "詳細",
     "type": "bezi2",
@@ -46,6 +47,8 @@ var chart_sub = {
     "unit": "W",
     "bgGradient": { direction: "vertical", from: "#222222", to: "#687478" },
     "hanreiFont": "100 8px 'Courier New'",
+    "xScaleFont": "100 8px Arial",
+    "xScaleAlign": "center",
     "yScaleFont": "100 8px Arial",
     "yScaleRotate": -45,
     "useShadow": "no",
@@ -57,7 +60,7 @@ var chart_sub = {
   ]
 };
 
-var sub_color_set = [
+var detailColorSet = [
   "#800000","#c00000","#ff0000",
   "#008000","#00c000","#00ff00",
   "#808000","#c0c000","#ffff00",
@@ -82,8 +85,10 @@ var sub_color_set = [
 
 var draw = function(data) {
   drawMain(data.time, data.sel, data.sol, data.buy, data.use);
-  drawSub(data);
+  drawDetail(data);
 };
+
+var mainDateHistory = [];
 
 var drawMain = function(time, sell, solar, buy, use) {
   var that = ccchart.ops['main'];
@@ -106,11 +111,29 @@ var drawMain = function(time, sell, solar, buy, use) {
       rowTitle = main_names[index] + "(" + value + "kW)";
     that.op.data[index].unshift(rowTitle);
   };
-  push_data(0, time);
-  push_data(1, sell);
-  push_data(2, use);
+  push_data(1, use);
+  push_data(2, sell);
   push_data(3, solar);
   push_data(4, buy);
+
+  mainDateHistory.push(time);
+  if (mainDateHistory.length > 10) {
+    mainDateHistory.shift();
+  }
+
+  var prevDrawDate = null;
+  for (var i = 0; i < mainDateHistory.length; i++) {
+    var d = mainDateHistory[i];
+    if (d != null &&
+        (prevDrawDate == null ||
+         d.getHours() != prevDrawDate.getHours() ||
+         d.getMinutes() != prevDrawDate.getMinutes())) {
+          that.op.data[0][1 + i] = ("0" + d.getHours()).substr(-2) + ":" + ("0" + d.getMinutes()).substr(-2);
+          prevDrawDate = d;
+    } else {
+          that.op.data[0][1 + i] = "";
+    }
+  }
 
   for (var i = 1; i < that.op.data[1].length; i++) {
     var y0 = that.op.data[1][i] + that.op.data[2][i];
@@ -138,11 +161,12 @@ var drawMain = function(time, sell, solar, buy, use) {
   ccchart.init(that.id, that.op);
 };
 
-var subNumHistory = 30;
-var subValueHistory = [];
+var detailNumHistory = 30;
+var detailValueHistory = [];
+var detailDateHistory = [];
 
-var drawSub = function(data) {
-  var that = ccchart.ops['sub'];
+var drawDetail = function(data) {
+  var that = ccchart.ops['detail'];
   if (that.drawing) {
       console.log('drop data on drawing');
       return; // discard receive data on drawing
@@ -161,13 +185,15 @@ var drawSub = function(data) {
         myValues[i] = parseInt(v.slice(0, -1));
     }
 
-    subValueHistory.push(myValues);
+    detailValueHistory.push(myValues);
+    detailDateHistory.push(new Date);
 
     var emptyLength = 0;
-    if (subValueHistory.length > subNumHistory) {
-      subValueHistory.shift();
+    if (detailValueHistory.length > detailNumHistory) {
+      detailValueHistory.shift();
+      detailDateHistory.shift();
     } else {
-      emptyLength = subNumHistory - subValueHistory.length;
+      emptyLength = detailNumHistory - detailValueHistory.length;
     }
 
     that.op.data = [ ["Time"] ];
@@ -177,8 +203,8 @@ var drawSub = function(data) {
     var maxY = 0;
     for (var i = 0; i < data.names.length; i++) {
       var exist = 0;
-      for (var j = 0; j < subValueHistory.length; j++) {
-        var v = subValueHistory[j][i];
+      for (var j = 0; j < detailValueHistory.length; j++) {
+        var v = detailValueHistory[j][i];
         if (v != 0) {
           exist = 1;
           break;
@@ -188,8 +214,8 @@ var drawSub = function(data) {
         values[c] = {};
         values[c].data = [];
         values[c].data[0] = data.names[i];
-        for (var j = 0; j < subValueHistory.length; j++) {
-          var vv = subValueHistory[j][i];
+        for (var j = 0; j < detailValueHistory.length; j++) {
+          var vv = detailValueHistory[j][i];
           values[c].data[emptyLength + 1 + j] = vv;
           if (vv > maxY)
             maxY = vv;
@@ -197,18 +223,28 @@ var drawSub = function(data) {
         if (emptyLength != 0) {
           values[c].data[emptyLength] = values[c].data[emptyLength + 1];
         }
-        values[c].color = sub_color_set[i];
-        that.op.config.colorSet[c] = sub_color_set[i];
+        values[c].color = detailColorSet[i];
+        that.op.config.colorSet[c] = detailColorSet[i];
         c++;
       }
     }
     if (values.length > 0) {
-      values.sort(function(a, b) { return a.data[subNumHistory] > b.data[subNumHistory] ? 1 : -1; });
+      values.sort(function(a, b) { return a.data[detailNumHistory] > b.data[detailNumHistory] ? 1 : -1; });
     }
     for (var i = 0; i < values.length; i++) {
-      values[i].data[0] = ("    " + values[i].data[subNumHistory]).slice(-4) + "W " + values[i].data[0];
+      values[i].data[0] = ("    " + values[i].data[detailNumHistory]).slice(-4) + "W " + values[i].data[0];
       that.op.data[i + 1] = values[i].data;
       that.op.config.colorSet[i] = values[i].color;
+    }
+    var prevDrawDate = null;
+    for (var i = 0; i < detailDateHistory.length; i++) {
+      var d = detailDateHistory[i];
+      if (prevDrawDate == null ||
+          d.getHours() != prevDrawDate.getHours() ||
+          d.getMinutes() != prevDrawDate.getMinutes()) {
+            that.op.data[0][emptyLength + 1 + i] = ("0" + d.getHours()).substr(-2) + ":" + ("0" + d.getMinutes()).substr(-2);
+            prevDrawDate = d;
+      }
     }
 
     var axisXLen;
@@ -267,7 +303,7 @@ var fetchMain = function () {
       data.buy = 0;
       data.sol = 0;
       data.use = 0;
-      data.time = "";
+      data.time = new Date;
       data.names = [];
       data.values = [];
       try {
@@ -315,12 +351,12 @@ var fetchSub = function (data, i) {
 };
 
 ccchart.init('main', chart_main);
-ccchart.init('sub', chart_sub);
+ccchart.init('detail', chart_detail);
 
 // initialize
 var i;
 for (i = 0; i < 10; i++) {
-  draw({sel:0, sol:0, buy:0, use:0});
+  draw({time:null, sel:0, sol:0, buy:0, use:0});
 }
 
 fetchTop();
