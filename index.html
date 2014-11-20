@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <head>
 <meta charset="utf-8">
-<title>AiSEG</title>
+<title>電力状態</title>
 <body>
 <script src="ccchart.js" charset="utf-8"></script>
 <canvas id="main"></canvas>
@@ -9,14 +9,14 @@
 <script>
 var chart_main = {
   "config": {
-    "title": "AiSEG",
-    "subTitle": "Statistics",
+    "title": "電気の流れ",
     "type": "stacked",
     "barWidth": 12,
     "stackedBar": [ 2, 2 ],
     "minY": 0,
     "unit": "kW",
     "xScaleFont": "100 8px Arial",
+    "xScaleRotate": -45,
     "yScaleFont": "100 8px Arial",
     "yScaleRotate": -45,
     "roundDigit": 1,
@@ -29,9 +29,16 @@ var chart_main = {
   ]
 };
 
-var main_names =
+var mainKeys =
 [
-  "Time",
+  "useT",
+  "selElecT",
+  "solerT",
+  "buyElecT"
+];
+
+var mainNames =
+[
   "消費",
   "売電",
   "発電",
@@ -40,7 +47,7 @@ var main_names =
 
 var chart_detail = {
   "config": {
-    "title": "詳細",
+    "title": "分岐回路瞬間値",
     "type": "bezi2",
     "lineWidth": 2,
     "minY": 0,
@@ -49,6 +56,7 @@ var chart_detail = {
     "hanreiFont": "100 8px 'Courier New'",
     "xScaleFont": "100 8px Arial",
     "xScaleAlign": "center",
+    "xScaleRotate": -45,
     "yScaleFont": "100 8px Arial",
     "yScaleRotate": -45,
     "useShadow": "no",
@@ -83,58 +91,91 @@ var detailColorSet = [
   "#00c080","#00ff80","#00ffc0",
 ];
 
-var draw = function(data) {
-  drawMain(data.time, data.sel, data.sol, data.buy, data.use);
-  drawDetail(data);
+var getTimeOfDay = function() {
+  return parseInt((new Date).getTime() / 1000);
 };
 
-var mainDateHistory = [];
+var formatTime = function(d) {
+  return ("0" + d.getHours()).substr(-2) + ":" + ("0" + d.getMinutes()).substr(-2);
+};
 
-var drawMain = function(time, sell, solar, buy, use) {
-  var that = ccchart.ops['main'];
-
-  if (that.drawing) {
-      console.log('drop data on drawing');
-      return; // discard receive data on drawing
-  }
-  var maxY = 0;
-  var push_data = function(index, value) {
-    var rowTitle = that.op.data[index].shift();
-    that.op.data[index].push(value * 1.0);
-    if (that.op.data[index].length > 10) {
-      that.op.data[index].shift();
-    }
-    var yy = Math.max.apply(null, that.op.data[index]);
-    if (yy > maxY)
-      maxY = yy;
-    if (index > 0)
-      rowTitle = main_names[index] + "(" + value + "kW)";
-    that.op.data[index].unshift(rowTitle);
-  };
-  push_data(1, use);
-  push_data(2, sell);
-  push_data(3, solar);
-  push_data(4, buy);
-
-  mainDateHistory.push(time);
-  if (mainDateHistory.length > 10) {
-    mainDateHistory.shift();
-  }
-
+var setupDateArray = function(src, dst, skip) {
   var prevDrawDate = null;
-  for (var i = 0; i < mainDateHistory.length; i++) {
-    var d = mainDateHistory[i];
+  for (var i = 0; i < src.length; i++) {
+    var d = src[i];
     if (d != null &&
         (prevDrawDate == null ||
          d.getHours() != prevDrawDate.getHours() ||
          d.getMinutes() != prevDrawDate.getMinutes())) {
-          that.op.data[0][1 + i] = ("0" + d.getHours()).substr(-2) + ":" + ("0" + d.getMinutes()).substr(-2);
+          dst[skip + 1 + i] = formatTime(d);
           prevDrawDate = d;
     } else {
-          that.op.data[0][1 + i] = "";
+          dst[skip + 1 + i] = "";
     }
   }
+}
 
+var mainNumHistory = 10;
+var mainDateHistory = [];
+var mainValueHistory = [];
+
+var detailNumHistory = 30;
+var detailDateHistory = [];
+var detailValueHistory = [];
+var detailNames = [];
+
+var updateData = function(data) {
+  mainDateHistory.push(data.time);
+  mainValueHistory.push(data.mainValues);
+  if (mainDateHistory.length > mainNumHistory) {
+    mainDateHistory.shift();
+    mainValueHistory.shift();
+  }
+
+  detailDateHistory.push(data.time);
+  detailValueHistory.push(data.detailValues);
+  if (detailDateHistory.length > detailNumHistory) {
+    detailDateHistory.shift();
+    detailValueHistory.shift();
+  }
+
+  drawMain();
+  drawDetail();
+
+  isFetching = 0;
+};
+
+var drawMain = function() {
+  var that = ccchart.ops['main'];
+  if (that.drawing) {
+      console.log('drop data on drawing');
+      return; // discard receive data on drawing
+  }
+
+  //
+  var emptyLength = 0;
+  if (mainValueHistory.length < mainNumHistory) {
+    emptyLength = mainNumHistory - mainValueHistory.length;
+  }
+
+  //
+  setupDateArray(mainDateHistory, that.op.data[0], emptyLength);
+
+  //
+  for (var i = 0; i < mainValueHistory[0].length; i++) {
+    for (var j = 0; j < mainValueHistory.length; j++) {
+      that.op.data[i + 1][emptyLength + 1 + j] = mainValueHistory[j][i];
+    }
+    var rowTitle;
+    var value = mainValueHistory[mainValueHistory.length - 1][i];
+    var valueStr = value;
+    if (value.toString().indexOf(".") < 0)
+      valueStr = valueStr + ".0";
+    that.op.data[i + 1][0] = mainNames[i] + "(" + valueStr + "kW)";
+  }
+
+  // setup maxY, axisXLen
+  var maxY = 0;
   for (var i = 1; i < that.op.data[1].length; i++) {
     var y0 = that.op.data[1][i] + that.op.data[2][i];
     var y1 = that.op.data[3][i] + that.op.data[4][i];
@@ -158,133 +199,114 @@ var drawMain = function(time, sell, solar, buy, use) {
   that.op.config.axisXLen = axisXLen;
   that.op.config.maxY = maxY;
 
+  //
   ccchart.init(that.id, that.op);
 };
 
-var detailNumHistory = 30;
-var detailValueHistory = [];
-var detailDateHistory = [];
-
-var drawDetail = function(data) {
+var drawDetail = function() {
   var that = ccchart.ops['detail'];
   if (that.drawing) {
-      console.log('drop data on drawing');
-      return; // discard receive data on drawing
-  }
-  var isZero = function(v) {
-    return v == "-W" || v == "0W" || v == "";
+    console.log('drop data on drawing');
+    return; // discard receive data on drawing
   }
 
-  if (data.names != null) {
-    var myValues = [];
-    for (var i = 0; i < data.names.length; i++) {
-      var v = data.values[i];
-      if (isZero(v))
-        myValues[i] = 0;
-      else
-        myValues[i] = parseInt(v.slice(0, -1));
+  that.op.data = [ ["Time"] ];
+
+  //
+  var emptyLength = 0;
+  if (detailValueHistory.length < detailNumHistory) {
+    emptyLength = detailNumHistory - detailValueHistory.length;
+  }
+
+  //
+  setupDateArray(detailDateHistory, that.op.data[0], emptyLength);
+
+  //
+  var values = [];
+  var c = 0;
+  var maxY = 0;
+  for (var i = 0; i < detailNames.length; i++) {
+    var exist = 0;
+    for (var j = 0; j < detailValueHistory.length; j++) {
+      var v = detailValueHistory[j][i];
+      if (v != 0) {
+        exist = 1;
+        break;
+      }
     }
-
-    detailValueHistory.push(myValues);
-    detailDateHistory.push(new Date);
-
-    var emptyLength = 0;
-    if (detailValueHistory.length > detailNumHistory) {
-      detailValueHistory.shift();
-      detailDateHistory.shift();
-    } else {
-      emptyLength = detailNumHistory - detailValueHistory.length;
-    }
-
-    that.op.data = [ ["Time"] ];
-
-    var values = [];
-    var c = 0;
-    var maxY = 0;
-    for (var i = 0; i < data.names.length; i++) {
-      var exist = 0;
+    if (exist) {
+      values[c] = {};
+      values[c].data = [];
+      values[c].data[0] = detailNames[i];
       for (var j = 0; j < detailValueHistory.length; j++) {
-        var v = detailValueHistory[j][i];
-        if (v != 0) {
-          exist = 1;
-          break;
-        }
+        var vv = detailValueHistory[j][i];
+        values[c].data[emptyLength + 1 + j] = vv;
+        if (vv > maxY)
+          maxY = vv;
       }
-      if (exist) {
-        values[c] = {};
-        values[c].data = [];
-        values[c].data[0] = data.names[i];
-        for (var j = 0; j < detailValueHistory.length; j++) {
-          var vv = detailValueHistory[j][i];
-          values[c].data[emptyLength + 1 + j] = vv;
-          if (vv > maxY)
-            maxY = vv;
-        }
-        if (emptyLength != 0) {
-          values[c].data[emptyLength] = values[c].data[emptyLength + 1];
-        }
-        values[c].color = detailColorSet[i];
-        that.op.config.colorSet[c] = detailColorSet[i];
-        c++;
+      if (emptyLength != 0) {
+        values[c].data[emptyLength] = values[c].data[emptyLength + 1];
       }
+      values[c].color = detailColorSet[i];
+      c++;
     }
-    if (values.length > 0) {
-      values.sort(function(a, b) { return a.data[detailNumHistory] > b.data[detailNumHistory] ? 1 : -1; });
-    }
-    for (var i = 0; i < values.length; i++) {
-      values[i].data[0] = ("    " + values[i].data[detailNumHistory]).slice(-4) + "W " + values[i].data[0];
-      that.op.data[i + 1] = values[i].data;
-      that.op.config.colorSet[i] = values[i].color;
-    }
-    var prevDrawDate = null;
-    for (var i = 0; i < detailDateHistory.length; i++) {
-      var d = detailDateHistory[i];
-      if (prevDrawDate == null ||
-          d.getHours() != prevDrawDate.getHours() ||
-          d.getMinutes() != prevDrawDate.getMinutes()) {
-            that.op.data[0][emptyLength + 1 + i] = ("0" + d.getHours()).substr(-2) + ":" + ("0" + d.getMinutes()).substr(-2);
-            prevDrawDate = d;
-      }
-    }
-
-    var axisXLen;
-    if (maxY <= 100) {
-      axisXLen = 10;
-      maxY = 100;
-    } else if (maxY <= 300) {
-      axisXLen = Math.ceil(maxY / 50);
-      maxY = Math.ceil(axisXLen * 50);
-    } else {
-      axisXLen = Math.ceil(maxY / 100);
-      maxY = Math.ceil(axisXLen * 100);
-    }
-    that.op.config.axisXLen = axisXLen;
-    that.op.config.maxY = maxY;
   }
+  if (values.length > 0) {
+    values.sort(function(a, b) { return a.data[detailNumHistory] > b.data[detailNumHistory] ? 1 : -1; });
+  }
+  for (var i = 0; i < values.length; i++) {
+    values[i].data[0] = ("    " + values[i].data[detailNumHistory]).slice(-4) + "W " + values[i].data[0];
+    that.op.data[i + 1] = values[i].data;
+    that.op.config.colorSet[i] = values[i].color;
+  }
+
+  //
+  var axisXLen;
+  if (maxY <= 100) {
+    axisXLen = 10;
+    maxY = 100;
+  } else if (maxY <= 300) {
+    axisXLen = Math.ceil(maxY / 50);
+    maxY = Math.ceil(axisXLen * 50);
+  } else {
+    axisXLen = Math.ceil(maxY / 100);
+    maxY = Math.ceil(axisXLen * 100);
+  }
+  that.op.config.axisXLen = axisXLen;
+  that.op.config.maxY = maxY;
 
   ccchart.init(that.id, that.op);
 }
 
-var lastFetchTop = 0;
+var lastFetchTopTime = 0;
+var isFetching = 0;
 
 // enable watt-checker on get every 120sec (maybe stop at 180sec)
 var fetchTop = function() {
+  if (isFetching != 0)
+    return;
+
+  isFetching = 1;
   var req = new XMLHttpRequest();
-  var fetchTop = parseInt((new Date).getTime() / 1000);
-  if (fetchTop - lastFetchTop < 120) {
+  var fetchTopTime = getTimeOfDay();
+  if (fetchTopTime - lastFetchTopTime < 120) {
     fetchMain();
     return;
   }
+
   req.onreadystatechange = function() {
     if (req.readyState == 4 && req.status == 200) {
-      lastFetchTop = fetchTop;
+      lastFetchTopTime = fetchTopTime;
       fetchMain();
+    } else {
+      isFetching = 0;
     }
   };
-  req.open("GET", "PROXY_HEAD/r?v=" + fetchTop, true);
+  req.open("GET", "PROXY_HEAD/r?v=" + fetchTopTime, true);
   req.send();
 };
 
+//
 var fetchMain = function () {
   var get_key = function (text, keyname) {
     var v = (text.match(new RegExp('var ' + keyname + ' = "([0-9-.]+)";')))[1];
@@ -296,33 +318,31 @@ var fetchMain = function () {
   };
   var req = new XMLHttpRequest();
   req.onreadystatechange = function() {
-    var data = {};
     if (req.readyState == 4 && req.status == 200) {
       var text = req.responseText;
-      data.sel = 0;
-      data.buy = 0;
-      data.sol = 0;
-      data.use = 0;
-      data.time = new Date;
-      data.names = [];
-      data.values = [];
+      var data = { time: new Date, mainValues: [], detailValues: [] };
+
       try {
-        data.sel = get_key(text, "selElecT");
-        data.buy = get_key(text, "buyElecT");
-        data.sol = get_key(text, "solerT");
-        data.use = get_key(text, "useT");
-        var date = new Date();
-        //time = ("0" + date.getHours()).substr(-2) + ":" + ("0" + date.getMinutes()).substr(-2) + ":" + ("0" + date.getSeconds()).substr(-2);
+        for (var i = 0; i < mainKeys.length; i++) {
+          data.mainValues[i] = get_key(text, mainKeys[i]);
+        }
       } catch (e) {
+        isFetching = 0;
+        return;
       }
-      fetchSub(data, 0);
+
+      detailNames = [];
+      fetchDetail(data, 0);
+    } else {
+      isFetching = 0;
     }
   }
-  req.open("GET", "PROXY_HEAD/t?v=" + parseInt((new Date).getTime()/1000), true);
+  req.open("GET", "PROXY_HEAD/t?v=" + getTimeOfDay(), true);
   req.send();
 };
 
-var fetchSub = function (data, i) {
+//
+var fetchDetail = function (data, i) {
   var get_key = function (text, keyname) {
     return (text.match(new RegExp('javascript:parent.' + keyname + ' = "(.*)";')))[1];
   };
@@ -335,29 +355,34 @@ var fetchSub = function (data, i) {
         var pageno = (text.match(/javascript:parent.pageno = ([0-9]+)/))[1];
         pageno = parseInt(pageno);
         for (var n = 0; n < 10; n++) {
-          data.names[n + pageno * 10] = get_key(text, "name" + n);
-          data.values[n + pageno * 10] = get_key(text, "value" + n);
+          detailNames[n + pageno * 10] = get_key(text, "name" + n);
+          var v = get_key(text, "value" + n);
+          if (v == "-W" || v == "") {
+            v = 0;
+          } else {
+            v = parseInt(v.slice(0, -1));
+          }
+          data.detailValues[n + pageno * 10] = v;
         }
       } catch (e) {
+        isFetching = 0;
+        return;
       }
       if (i < 3)
-        fetchSub(data, i + 1);
-      else
-        draw(data);
+        fetchDetail(data, i + 1);
+      else {
+        updateData(data);
+      }
+    } else {
+      isFetching = 0;
     }
   }
-  req.open("GET", "PROXY_HEAD/p" + i + "?v=" + parseInt((new Date).getTime()/1000), true);
+  req.open("GET", "PROXY_HEAD/p" + i + "?v=" + getTimeOfDay(), true);
   req.send();
 };
 
 ccchart.init('main', chart_main);
 ccchart.init('detail', chart_detail);
-
-// initialize
-var i;
-for (i = 0; i < 10; i++) {
-  draw({time:null, sel:0, sol:0, buy:0, use:0});
-}
 
 fetchTop();
 
