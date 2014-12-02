@@ -1,38 +1,71 @@
 var http = require('http');
 var url = require('url');
-http.createServer(function onCliReq(cliReq, cliRes) {
+var path = require('path');
+var fs = require('fs');
+
+var filelist = {
+  "/"           : 1,
+  "/ccchart.js" : 1
+};
+var extfmt = {
+  ".html" : "text/html; charset=utf-8",
+  ".js"   : "application/javascript; charset=utf-8"
+};
+
+http.createServer(function(cliReq, cliRes) {
   var x = url.parse(cliReq.url);
   var ts = parseInt((new Date).getTime()/1000);
-  var path;
+  var return_error = function(res, code, msg) {
+    res.writeHead(code, {'Content-Type': 'text/html'});
+    res.write("<!DOCTYPE html><html><body><h1>" + code + " " + msg + "</h1></body></html>");
+    res.end();
+  };
+
+  if (filelist[x.path]) {
+    var filename = x.path;
+    if (x.path == '/')
+      filename = '/index.html';
+    var file = fs.createReadStream("." + filename);
+    var fmt = extfmt[path.extname(filename)] || "text/lain";
+    cliRes.writeHead(200, {'Content-Type': fmt});
+    file.on('data', function(data) {
+       cliRes.write(data);
+    });
+    file.on('close', function() {
+       cliRes.end();
+    });
+    file.on('error', function(err) {
+       return_error(cliRes, 500, "Internal Server Error");
+    });
+    return;
+  }
+  var dstpath;
   switch (x.path.substring(0, 2)) {
     case '/r':
-      path = "/get/top.cgi";
+      dstpath = "/get/top.cgi";
       break;
     case '/t':
-      path = "/get/top_val.cgi?poll=" + ts;
+      dstpath = "/get/top_val.cgi?poll=" + ts;
       break;
     case '/p': // "/p0" .. "/p3"
       index = x.path.substring(2, 3);
-      path = "/get/instantvaldata.cgi?pageno=" + index + "&poll=" + ts;
+      dstpath = "/get/instantvaldata.cgi?pageno=" + index + "&poll=" + ts;
       break;
     case '/l':
-      path = "/set/exectop2.cgi";
+      dstpath = "/set/exectop2.cgi";
       break;
     default:
-      cliRes.writeHead(404, {'Content-Type': 'text/html'});
-      cliRes.write("<html><title>404 Not Found</title><body>404 Not Found</body></html>");
-      cliRes.end();
+      return_error(cliRes, 404, "Not Found");
       return;
   }
   var req = http.get(
     {
       host: 'AISEG_HOST',
       port: 80,
-      path: path,
+      path: dstpath,
       auth: 'AiSEG:AISEG_PASS'
     },
-    function (res) {
-      res.headers['Access-Control-Allow-Origin'] = '*'; // allow XSS
+    function(res) {
       cliRes.writeHead(res.statusCode, res.headers);
       res.pipe(cliRes);
     }

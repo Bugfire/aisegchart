@@ -23,4 +23,4 @@ $(TARGET)/proxy.js:
 	sed -e 's&AISEG_HOST&$(AISEG_HOST)&g' -e 's&AISEG_PASS&$(AISEG_PASS)&g' -e 's&PROXY_PORT&$(PROXY_PORT)&' < proxy.js > $@
 
 $(TARGET)/index.html:
-	sed -e 's&PROXY_HEAD&$(PROXY_HEAD)&g' < index.html > $@
+	cp index.html $@

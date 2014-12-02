@@ -302,7 +302,7 @@ var fetchTop = function() {
       isFetching = 0;
     }
   };
-  req.open("GET", "PROXY_HEAD/r?v=" + fetchTopTime, true);
+  req.open("GET", "/r?v=" + fetchTopTime, true);
   req.send();
 };
 
@@ -337,7 +337,7 @@ var fetchMain = function () {
       isFetching = 0;
     }
   }
-  req.open("GET", "PROXY_HEAD/t?v=" + getTimeOfDay(), true);
+  req.open("GET", "/t?v=" + getTimeOfDay(), true);
   req.send();
 };
 
@@ -377,7 +377,7 @@ var fetchDetail = function (data, i) {
       isFetching = 0;
     }
   }
-  req.open("GET", "PROXY_HEAD/p" + i + "?v=" + getTimeOfDay(), true);
+  req.open("GET", "/p" + i + "?v=" + getTimeOfDay(), true);
   req.send();
 };
 
