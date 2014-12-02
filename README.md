@@ -7,7 +7,6 @@ aisegchart
 # Requirements:
 * MKN700
 * node.js / npm forever (proxy.js as proxy server for MKN700)
-* Webserver for index.html (存在しないなら、node.jsで返すのが自然だと思います)
 * Webbrowser 
 
 # Installation:
