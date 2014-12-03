@@ -1,3 +1,9 @@
+/**
+ * @license aisegserv v0.8.1
+ * (c) 2014 Bugfire http://ol.eek.jp/blog/
+ * License: MIT
+ */
+
 var http = require('http');
 var url = require('url');
 var path = require('path');

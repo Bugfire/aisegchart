@@ -20,3 +20,7 @@ Makefile の以下の部分を変更してください。
 
 # Bugs:
 分岐回路瞬間値がUndefinedになることがある。
+
+# License:
+* MIT
+    * see LICENSE
