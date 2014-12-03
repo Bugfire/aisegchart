@@ -26,7 +26,7 @@ http.createServer(function(cliReq, cliRes) {
     if (x.path == '/')
       filename = '/index.html';
     var file = fs.createReadStream("." + filename);
-    var fmt = extfmt[path.extname(filename)] || "text/lain";
+    var fmt = extfmt[path.extname(filename)] || "text/plain";
     cliRes.writeHead(200, {'Content-Type': fmt});
     file.on('data', function(data) {
        cliRes.write(data);

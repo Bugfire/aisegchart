@@ -18,4 +18,5 @@ Makefile の以下の部分を変更してください。
     AISEG_PASS=__AISEG_PASSWORD__
     WEBSERVER_PORT=__WEBSERVER_PORT__
 
-を設定してください。
+# Bugs:
+分岐回路瞬間値がUndefinedになることがある。
