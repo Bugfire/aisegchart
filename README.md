@@ -10,13 +10,12 @@ aisegchart
 * Webbrowser 
 
 # Installation:
-Makefileを参考に
+Makefile の以下の部分を変更してください。
 
     TARGET=__TARGET_DIR__
     
     AISEG_HOST=__AISEG_IP_OR_HOST__
     AISEG_PASS=__AISEG_PASSWORD__
-    PROXY_HOST=__PROXY_IP_OR_HOST__
-    PROXY_PORT=__PROXY_PORT__
+    WEBSERVER_PORT=__WEBSERVER_PORT__
 
 を設定してください。

@@ -307,8 +307,8 @@ var fetchTop = function() {
 };
 
 //
-var fetchMain = function () {
-  var get_key = function (text, keyname) {
+var fetchMain = function() {
+  var get_key = function(text, keyname) {
     var v = (text.match(new RegExp('var ' + keyname + ' = "([0-9-.]+)";')))[1];
     if (v == '-')
       v = 0;
@@ -342,8 +342,8 @@ var fetchMain = function () {
 };
 
 //
-var fetchDetail = function (data, i) {
-  var get_key = function (text, keyname) {
+var fetchDetail = function(data, i) {
+  var get_key = function(text, keyname) {
     return (text.match(new RegExp('javascript:parent.' + keyname + ' = "(.*)";')))[1];
   };
 
